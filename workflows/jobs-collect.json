@@ -1,0 +1,714 @@
+{
+  "name": "jobs-collect",
+  "description": "Щоранку 08:00: вакансії з DOU RSS + особисті листи рекрутерів і дайджести з пошти archive → таблиця job_vacancies (status new).",
+  "active": true,
+  "createdAt": "2026-10-31T12:55:28.173Z",
+  "updatedAt": "2026-10-31T18:37:11.146Z",
+  "isArchived": false,
+  "versionCounter": 4,
+  "sourceWorkflowId": null,
+  "nodes": [
+    {
+      "id": "0f6b3e11-e3a3-49c2-8760-49f93c4ae4a0",
+      "name": "Every morning 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3b755d46-cdf6-4a85-bb7f-6b6550870eda",
+      "name": "Job inbox (last 7 days)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        200
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": true,
+        "simple": false,
+        "filters": {
+          "readStatus": "both",
+          "q": "newer_than:7d"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account_for vacancies"
+        }
+      },
+      "alwaysOutputData": true,
+      "webhookId": "eedaa070-fdc8-4e4f-88de-8d8d90c813c8"
+    },
+    {
+      "id": "c845a55f-d207-4b00-9354-b397c5d10df1",
+      "name": "Classify emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const clean = (t) => (t || '').replace(/<https?:[^>]+>/g, ' ').replace(/https?:\\/\\/\\S+/g, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n{2,}/g, '\\n').trim();\nconst SERVICE = /DOU Daily|Як швидко|security|безпеки|verify|confirm|підтверд|код|code|парол|password|welcome|ласкаво/i;\nconst out = [];\nfor (const it of $input.all()) {\n  const j = it.json;\n  if (!j.id) continue;\n  const from = ((j.from && j.from.value && j.from.value[0] && j.from.value[0].address) || '').toLowerCase();\n  const subject = j.subject || '';\n  const raw = j.text || '';\n  const date = j.date || new Date().toISOString();\n  if (from.includes('djinni.co') && /Пропозиція від|Offer from|message/i.test(subject + raw.slice(0, 200))) {\n    const chat = (raw.match(/https:\\/\\/djinni\\.co\\/my\\/inbox\\/\\d+\\/?/) || [''])[0];\n    const sm = subject.match(/(?:Пропозиція від|Offer from)\\s+(.+?),\\s*(.+)$/i);\n    out.push({ json: {\n      key: chat ? 'djinni-' + chat.replace(/\\D/g, '') : 'mail-' + j.id,\n      source: 'Djinni', kind: 'direct',\n      title: subject, company: sm ? sm[2].trim() : '',\n      link: chat, chat_link: chat,\n      recruiter: sm ? sm[1].trim() : '', recruiter_email: '',\n      text: clean(raw).slice(0, 4000), received_at: date,\n    }});\n    continue;\n  }\n  if (SERVICE.test(subject)) continue;\n  const replyTo = (j.replyTo && j.replyTo.value && j.replyTo.value[0] && j.replyTo.value[0].address) || '';\n  const isBoard = /jooble|work\\.ua|robota\\.ua|rabota\\.ua|djinni|linkedin|dou\\.ua/.test(from);\n  if (isBoard) {\n    out.push({ json: {\n      key: 'mail-' + j.id,\n      source: from.includes('jooble') ? 'Jooble' : from.includes('work.ua') ? 'Work.ua' : from.includes('dou.ua') ? 'DOU' : from.split('@')[1] || from,\n      kind: 'digest_email',\n      title: subject, company: '', link: '', chat_link: '', recruiter: '', recruiter_email: '',\n      text: (raw || '').slice(0, 8000), received_at: date,\n    }});\n    continue;\n  }\n  // a real person wrote to the job inbox\n  if (!/no-?reply|notification|mailer|google\\.com/.test(from)) {\n    out.push({ json: {\n      key: 'mail-' + j.id, source: 'Email', kind: 'direct',\n      title: subject, company: '', link: '', chat_link: '',\n      recruiter: (j.from && j.from.value && j.from.value[0] && j.from.value[0].name) || '',\n      recruiter_email: replyTo || from,\n      text: clean(raw).slice(0, 4000), received_at: date,\n    }});\n  }\n}\nreturn out;\n"
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0b3f08b2-ffe4-4254-9c1f-71a912431236",
+      "name": "Dedupe in batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const seen = new Set();\nconst out = [];\nfor (const it of $input.all()) {\n  const k = it.json.key;\n  if (!k || seen.has(k)) continue;\n  seen.add(k);\n  out.push(it);\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "4131b37e-a500-4033-b63e-a42148cef497",
+      "name": "Not seen before",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e5d6d21b-3a01-40e6-bb74-8a2ac4bb375f",
+      "name": "Save vacancy",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $json.key }}",
+            "source": "={{ $json.source }}",
+            "kind": "={{ $json.kind }}",
+            "title": "={{ $json.title }}",
+            "company": "={{ $json.company }}",
+            "link": "={{ $json.link }}",
+            "chat_link": "={{ $json.chat_link }}",
+            "recruiter": "={{ $json.recruiter }}",
+            "recruiter_email": "={{ $json.recruiter_email }}",
+            "text": "={{ $json.text }}",
+            "received_at": "={{ $json.received_at }}",
+            "status": "new"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chat_link",
+              "displayName": "chat_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recruiter",
+              "displayName": "recruiter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recruiter_email",
+              "displayName": "recruiter_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Every morning 08:00": {
+      "main": [
+        [
+          {
+            "node": "Job inbox (last 7 days)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job inbox (last 7 days)": {
+      "main": [
+        [
+          {
+            "node": "Classify emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedupe in batch": {
+      "main": [
+        [
+          {
+            "node": "Not seen before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not seen before": {
+      "main": [
+        [
+          {
+            "node": "Save vacancy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify emails": {
+      "main": [
+        [
+          {
+            "node": "Dedupe in batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "22f58752-cc1a-43ee-9b6d-5780b5b58127",
+      "name": "Пошта archive",
+      "nodeIds": [
+        "3b755d46-cdf6-4a85-bb7f-6b6550870eda",
+        "c845a55f-d207-4b00-9354-b397c5d10df1"
+      ],
+      "description": "Особисті листи рекрутерів (Djinni) і дайджести Jooble/Work.ua за 7 днів"
+    },
+    {
+      "id": "1fe65a36-607d-46cb-a2b3-4bef420ea488",
+      "name": "Зберегти нові",
+      "nodeIds": [
+        "0b3f08b2-ffe4-4254-9c1f-71a912431236",
+        "4131b37e-a500-4033-b63e-a42148cef497",
+        "e5d6d21b-3a01-40e6-bb74-8a2ac4bb375f"
+      ],
+      "description": "Прибирає дублі й те, що вже є в таблиці job_vacancies, зберігає зі статусом new"
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/Kiev"
+  },
+  "activeVersion": {
+    "versionId": "341d458e-0abc-4fc3-bc03-b406ae4a420f",
+    "workflowId": "YDhuULKHO77xAWn9",
+    "nodes": [
+      {
+        "id": "0f6b3e11-e3a3-49c2-8760-49f93c4ae4a0",
+        "name": "Every morning 08:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.4,
+        "position": [
+          0,
+          200
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "days",
+                "daysInterval": 1,
+                "triggerAtHour": 8,
+                "triggerAtMinute": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "3b755d46-cdf6-4a85-bb7f-6b6550870eda",
+        "name": "Job inbox (last 7 days)",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          240,
+          200
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "getAll",
+          "returnAll": true,
+          "simple": false,
+          "filters": {
+            "readStatus": "both",
+            "q": "newer_than:7d"
+          },
+          "options": {}
+        },
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "",
+            "name": "Gmail account_for vacancies"
+          }
+        },
+        "alwaysOutputData": true,
+        "webhookId": "eedaa070-fdc8-4e4f-88de-8d8d90c813c8"
+      },
+      {
+        "id": "c845a55f-d207-4b00-9354-b397c5d10df1",
+        "name": "Classify emails",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          200
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const clean = (t) => (t || '').replace(/<https?:[^>]+>/g, ' ').replace(/https?:\\/\\/\\S+/g, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n{2,}/g, '\\n').trim();\nconst SERVICE = /DOU Daily|Як швидко|security|безпеки|verify|confirm|підтверд|код|code|парол|password|welcome|ласкаво/i;\nconst out = [];\nfor (const it of $input.all()) {\n  const j = it.json;\n  if (!j.id) continue;\n  const from = ((j.from && j.from.value && j.from.value[0] && j.from.value[0].address) || '').toLowerCase();\n  const subject = j.subject || '';\n  const raw = j.text || '';\n  const date = j.date || new Date().toISOString();\n  if (from.includes('djinni.co') && /Пропозиція від|Offer from|message/i.test(subject + raw.slice(0, 200))) {\n    const chat = (raw.match(/https:\\/\\/djinni\\.co\\/my\\/inbox\\/\\d+\\/?/) || [''])[0];\n    const sm = subject.match(/(?:Пропозиція від|Offer from)\\s+(.+?),\\s*(.+)$/i);\n    out.push({ json: {\n      key: chat ? 'djinni-' + chat.replace(/\\D/g, '') : 'mail-' + j.id,\n      source: 'Djinni', kind: 'direct',\n      title: subject, company: sm ? sm[2].trim() : '',\n      link: chat, chat_link: chat,\n      recruiter: sm ? sm[1].trim() : '', recruiter_email: '',\n      text: clean(raw).slice(0, 4000), received_at: date,\n    }});\n    continue;\n  }\n  if (SERVICE.test(subject)) continue;\n  const replyTo = (j.replyTo && j.replyTo.value && j.replyTo.value[0] && j.replyTo.value[0].address) || '';\n  const isBoard = /jooble|work\\.ua|robota\\.ua|rabota\\.ua|djinni|linkedin|dou\\.ua/.test(from);\n  if (isBoard) {\n    out.push({ json: {\n      key: 'mail-' + j.id,\n      source: from.includes('jooble') ? 'Jooble' : from.includes('work.ua') ? 'Work.ua' : from.includes('dou.ua') ? 'DOU' : from.split('@')[1] || from,\n      kind: 'digest_email',\n      title: subject, company: '', link: '', chat_link: '', recruiter: '', recruiter_email: '',\n      text: (raw || '').slice(0, 8000), received_at: date,\n    }});\n    continue;\n  }\n  // a real person wrote to the job inbox\n  if (!/no-?reply|notification|mailer|google\\.com/.test(from)) {\n    out.push({ json: {\n      key: 'mail-' + j.id, source: 'Email', kind: 'direct',\n      title: subject, company: '', link: '', chat_link: '',\n      recruiter: (j.from && j.from.value && j.from.value[0] && j.from.value[0].name) || '',\n      recruiter_email: replyTo || from,\n      text: clean(raw).slice(0, 4000), received_at: date,\n    }});\n  }\n}\nreturn out;\n"
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "0b3f08b2-ffe4-4254-9c1f-71a912431236",
+        "name": "Dedupe in batch",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          720,
+          200
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const seen = new Set();\nconst out = [];\nfor (const it of $input.all()) {\n  const k = it.json.key;\n  if (!k || seen.has(k)) continue;\n  seen.add(k);\n  out.push(it);\n}\nreturn out;\n"
+        }
+      },
+      {
+        "id": "4131b37e-a500-4033-b63e-a42148cef497",
+        "name": "Not seen before",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          960,
+          200
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "rowNotExists",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "key",
+                "keyValue": "={{ $json.key }}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "e5d6d21b-3a01-40e6-bb74-8a2ac4bb375f",
+        "name": "Save vacancy",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1200,
+          200
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "insert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "key": "={{ $json.key }}",
+              "source": "={{ $json.source }}",
+              "kind": "={{ $json.kind }}",
+              "title": "={{ $json.title }}",
+              "company": "={{ $json.company }}",
+              "link": "={{ $json.link }}",
+              "chat_link": "={{ $json.chat_link }}",
+              "recruiter": "={{ $json.recruiter }}",
+              "recruiter_email": "={{ $json.recruiter_email }}",
+              "text": "={{ $json.text }}",
+              "received_at": "={{ $json.received_at }}",
+              "status": "new"
+            },
+            "schema": [
+              {
+                "id": "key",
+                "displayName": "key",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "source",
+                "displayName": "source",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "kind",
+                "displayName": "kind",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "title",
+                "displayName": "title",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "company",
+                "displayName": "company",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "link",
+                "displayName": "link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "chat_link",
+                "displayName": "chat_link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "recruiter",
+                "displayName": "recruiter",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "recruiter_email",
+                "displayName": "recruiter_email",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "text",
+                "displayName": "text",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "received_at",
+                "displayName": "received_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "dateTime",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Every morning 08:00": {
+        "main": [
+          [
+            {
+              "node": "Job inbox (last 7 days)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Job inbox (last 7 days)": {
+        "main": [
+          [
+            {
+              "node": "Classify emails",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Dedupe in batch": {
+        "main": [
+          [
+            {
+              "node": "Not seen before",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Not seen before": {
+        "main": [
+          [
+            {
+              "node": "Save vacancy",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Classify emails": {
+        "main": [
+          [
+            {
+              "node": "Dedupe in batch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [
+      {
+        "id": "22f58752-cc1a-43ee-9b6d-5780b5b58127",
+        "name": "Пошта archive",
+        "nodeIds": [
+          "3b755d46-cdf6-4a85-bb7f-6b6550870eda",
+          "c845a55f-d207-4b00-9354-b397c5d10df1"
+        ],
+        "description": "Особисті листи рекрутерів (Djinni) і дайджести Jooble/Work.ua за 7 днів"
+      },
+      {
+        "id": "1fe65a36-607d-46cb-a2b3-4bef420ea488",
+        "name": "Зберегти нові",
+        "nodeIds": [
+          "0b3f08b2-ffe4-4254-9c1f-71a912431236",
+          "4131b37e-a500-4033-b63e-a42148cef497",
+          "e5d6d21b-3a01-40e6-bb74-8a2ac4bb375f"
+        ],
+        "description": "Прибирає дублі й те, що вже є в таблиці job_vacancies, зберігає зі статусом new"
+      }
+    ],
+    "authors": "Anastasiia Ukrainska (via MCP)",
+    "name": "Фильтр служебных писем (коды, подтверждения)",
+    "description": "Updated nodes: Classify emails",
+    "autosaved": false,
+    "createdAt": "2026-10-31T18:37:11.149Z",
+    "updatedAt": "2026-10-31T18:37:11.149Z",
+    "workflowPublishHistory": [
+      {
+        "id": 117,
+        "workflowId": "YDhuULKHO77xAWn9",
+        "versionId": "341d458e-0abc-4fc3-bc03-b406ae4a420f",
+        "event": "activated",
+        "userId": "8f722349-c974-4f2d-a88e-f0aee42ec334",
+        "createdAt": "2026-10-31T18:37:11.951Z"
+      }
+    ]
+  },
+  "parentFolder": null
+}

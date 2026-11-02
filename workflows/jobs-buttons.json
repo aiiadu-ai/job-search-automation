@@ -1,0 +1,419 @@
+{
+  "name": "jobs-buttons",
+  "description": "Кнопки на картках вакансій у Тапку: ✉️ чернетка → status draft_requested (сервер зробить резюме о 9:00 у будні), ❌ → skipped. Відповідає на клік і оновлює картку.",
+  "active": true,
+  "createdAt": "2026-10-31T22:29:49.885Z",
+  "updatedAt": "2026-10-31T22:29:49.885Z",
+  "isArchived": false,
+  "versionCounter": 1,
+  "sourceWorkflowId": null,
+  "nodes": [
+    {
+      "id": "b0abd277-edc5-4e7f-86a6-5a547969c0a7",
+      "name": "Button click",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "updates": [
+          "callback_query"
+        ],
+        "additionalFields": {
+          "userIds": "YOUR_TELEGRAM_CHAT_ID"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "TapokForEveryday_bot"
+        }
+      },
+      "webhookId": "f8ecbbe4-c9db-4391-a540-935d476d1d99"
+    },
+    {
+      "id": "eb5b8c52-01e0-411f-8e98-80c866dc7995",
+      "name": "Parse click",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// callback_data = draft:ID або skip:ID\nconst out = [];\nfor (const it of $input.all()) {\n  const q = it.json.callback_query;\n  if (!q || !q.data) continue;\n  const [action, id] = q.data.split(':');\n  if (!['draft', 'skip'].includes(action) || !id) continue;\n  out.push({ json: {\n    action, id: Number(id),\n    status: action === 'draft' ? 'draft_requested' : 'skipped',\n    queryId: q.id, chatId: String(q.message.chat.id), messageId: String(q.message.message_id),\n  } });\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "8abf4ebc-50d4-428f-b7bc-206f4cdd848a",
+      "name": "Set status",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.status }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2bb994b7-3b3c-4a8c-88cc-654b29cd7b64",
+      "name": "Answer click",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Parse click').item.json.queryId }}",
+        "additionalFields": {
+          "text": "={{ $('Parse click').item.json.action === 'draft' ? 'Ок, в черзі на чернетку ✉️' : 'Пропущено ❌' }}"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "TapokForEveryday_bot"
+        }
+      },
+      "webhookId": "c6bc7c96-1d33-4991-8a70-ca2d703c7537"
+    },
+    {
+      "id": "27cc1a4a-9196-47d7-aeff-c143974305fb",
+      "name": "Update card",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "editMessageText",
+        "messageType": "message",
+        "chatId": "={{ $('Parse click').item.json.chatId }}",
+        "messageId": "={{ $('Parse click').item.json.messageId }}",
+        "replyMarkup": "none",
+        "text": "={{ $('Set status').item.json.card }}\n\n{{ $('Parse click').item.json.action === 'draft' ? '⏳ <i>Чернетка в черзі: зроблю в найближчий будній день о 9:00 і напишу сюди</i>' : '❌ <i>Пропущено</i>' }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "TapokForEveryday_bot"
+        }
+      },
+      "webhookId": "bdc5393f-fdab-4c5e-a0e5-35a4b16d196e"
+    }
+  ],
+  "connections": {
+    "Button click": {
+      "main": [
+        [
+          {
+            "node": "Parse click",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse click": {
+      "main": [
+        [
+          {
+            "node": "Set status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status": {
+      "main": [
+        [
+          {
+            "node": "Answer click",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer click": {
+      "main": [
+        [
+          {
+            "node": "Update card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "activeVersion": {
+    "versionId": "f1a1e56a-def7-4c88-8129-993b22d14b11",
+    "workflowId": "9K8mzRl7wAp9p38v",
+    "nodes": [
+      {
+        "id": "b0abd277-edc5-4e7f-86a6-5a547969c0a7",
+        "name": "Button click",
+        "type": "n8n-nodes-base.telegramTrigger",
+        "typeVersion": 1.5,
+        "position": [
+          0,
+          300
+        ],
+        "parameters": {
+          "updates": [
+            "callback_query"
+          ],
+          "additionalFields": {
+            "userIds": "YOUR_TELEGRAM_CHAT_ID"
+          }
+        },
+        "credentials": {
+          "telegramApi": {
+            "id": "",
+            "name": "TapokForEveryday_bot"
+          }
+        },
+        "webhookId": "f8ecbbe4-c9db-4391-a540-935d476d1d99"
+      },
+      {
+        "id": "eb5b8c52-01e0-411f-8e98-80c866dc7995",
+        "name": "Parse click",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          300
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "// callback_data = draft:ID або skip:ID\nconst out = [];\nfor (const it of $input.all()) {\n  const q = it.json.callback_query;\n  if (!q || !q.data) continue;\n  const [action, id] = q.data.split(':');\n  if (!['draft', 'skip'].includes(action) || !id) continue;\n  out.push({ json: {\n    action, id: Number(id),\n    status: action === 'draft' ? 'draft_requested' : 'skipped',\n    queryId: q.id, chatId: String(q.message.chat.id), messageId: String(q.message.message_id),\n  } });\n}\nreturn out;"
+        }
+      },
+      {
+        "id": "8abf4ebc-50d4-428f-b7bc-206f4cdd848a",
+        "name": "Set status",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          440,
+          300
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $json.id }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "status": "={{ $json.status }}"
+            },
+            "schema": [
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "2bb994b7-3b3c-4a8c-88cc-654b29cd7b64",
+        "name": "Answer click",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          660,
+          300
+        ],
+        "parameters": {
+          "resource": "callback",
+          "operation": "answerQuery",
+          "queryId": "={{ $('Parse click').item.json.queryId }}",
+          "additionalFields": {
+            "text": "={{ $('Parse click').item.json.action === 'draft' ? 'Ок, в черзі на чернетку ✉️' : 'Пропущено ❌' }}"
+          }
+        },
+        "credentials": {
+          "telegramApi": {
+            "id": "",
+            "name": "TapokForEveryday_bot"
+          }
+        },
+        "webhookId": "c6bc7c96-1d33-4991-8a70-ca2d703c7537"
+      },
+      {
+        "id": "27cc1a4a-9196-47d7-aeff-c143974305fb",
+        "name": "Update card",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          880,
+          300
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "editMessageText",
+          "messageType": "message",
+          "chatId": "={{ $('Parse click').item.json.chatId }}",
+          "messageId": "={{ $('Parse click').item.json.messageId }}",
+          "replyMarkup": "none",
+          "text": "={{ $('Set status').item.json.card }}\n\n{{ $('Parse click').item.json.action === 'draft' ? '⏳ <i>Чернетка в черзі: зроблю в найближчий будній день о 9:00 і напишу сюди</i>' : '❌ <i>Пропущено</i>' }}",
+          "additionalFields": {
+            "parse_mode": "HTML",
+            "disable_web_page_preview": true
+          }
+        },
+        "credentials": {
+          "telegramApi": {
+            "id": "",
+            "name": "TapokForEveryday_bot"
+          }
+        },
+        "webhookId": "bdc5393f-fdab-4c5e-a0e5-35a4b16d196e"
+      }
+    ],
+    "connections": {
+      "Button click": {
+        "main": [
+          [
+            {
+              "node": "Parse click",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse click": {
+        "main": [
+          [
+            {
+              "node": "Set status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set status": {
+        "main": [
+          [
+            {
+              "node": "Answer click",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Answer click": {
+        "main": [
+          [
+            {
+              "node": "Update card",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Anastasiia Ukrainska (via MCP)",
+    "name": "Initial: draft/skip buttons handler",
+    "description": "Created with 5 nodes: Button click, Parse click, Set status, Answer click, Update card",
+    "autosaved": false,
+    "createdAt": "2026-10-31T22:29:49.889Z",
+    "updatedAt": "2026-10-31T22:29:49.889Z",
+    "workflowPublishHistory": [
+      {
+        "id": 119,
+        "workflowId": "9K8mzRl7wAp9p38v",
+        "versionId": "f1a1e56a-def7-4c88-8129-993b22d14b11",
+        "event": "activated",
+        "userId": "8f722349-c974-4f2d-a88e-f0aee42ec334",
+        "createdAt": "2026-10-31T22:30:03.635Z"
+      }
+    ]
+  },
+  "parentFolder": null
+}

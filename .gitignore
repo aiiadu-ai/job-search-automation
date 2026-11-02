@@ -1,0 +1,6 @@
+.env
+resume-base.md
+photo.jpg
+*.log
+out/
+state/

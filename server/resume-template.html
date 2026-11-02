@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Anastasiia Ukrainska — Resume</title>
+<!--
+  RESUME TEMPLATE (design v4)
+  Claude Code заповнює лише плейсхолдери {{...}} фрагментами HTML.
+  Факти беруться ТІЛЬКИ з resume-base. Нічого не вигадувати.
+  Вміст має вміщатися на 1 сторінку A4.
+
+  {{HEADLINE}}    — рядок під іменем, напр. "IT Support & AI Automation"
+  {{SUMMARY}}     — 3–5 речень, під вакансію
+  {{SKILLS}}      — блоки <div class="skill"><b>Група</b><span>список</span></div>
+  {{EXPERIENCE}}  — <li><b>Назва.</b> текст з <em>цифрами</em></li> (4–6 шт, найрелевантніші першими)
+  {{PROJECTS}}    — <div class="proj"><b>Назва</b><p>опис</p><small>стек</small></div> (2–3 шт)
+  {{EARLIER}}     — <li>… (0–2 шт, можна прибрати, якщо не влазить)
+
+  photo.jpg лежить поруч із шаблоном.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --burgundy: #7b1e34;
+    --sidebar: #ede4d5;
+    --line: #d9c9ab;
+    --text: #2b2b2b;
+    --muted: #6f6a62;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 210mm; height: 296mm; overflow: hidden;
+    font-family: "Inter", sans-serif; font-size: 8.9pt; line-height: 1.42; color: var(--text);
+    display: grid; grid-template-columns: 62mm 1fr;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  a { color: var(--burgundy); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+  /* ---------- sidebar ---------- */
+  aside { background: var(--sidebar); padding: 12mm 7mm 10mm 8mm; }
+  .photo { width: 34mm; height: 34mm; border-radius: 50%; overflow: hidden; margin: 0 auto 9mm; background: #fff; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  aside h3 {
+    font-size: 8pt; font-weight: 700; letter-spacing: .14em; color: var(--burgundy);
+    margin: 0 0 3mm; padding-bottom: 2mm; border-bottom: 1px solid var(--line);
+  }
+  aside section { margin-bottom: 6mm; }
+  .label { font-size: 7pt; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; margin-top: 2mm; }
+  .skill, .item { margin-bottom: 3mm; }
+  .skill b, .item b { display: block; font-weight: 600; }
+  .skill span, .item span { display: block; }
+  .item small { display: block; color: var(--muted); font-size: 8pt; }
+
+  /* ---------- main ---------- */
+  main { position: relative; padding: 12mm 12mm 8mm 11mm; }
+  main::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2.2mm; background: var(--burgundy); }
+  h1 { font-size: 22pt; line-height: 1.05; margin: 2mm 0 2mm; font-weight: 700; letter-spacing: -.01em; }
+  .headline { color: var(--burgundy); font-weight: 600; font-size: 10.5pt; margin-bottom: 6mm; }
+  main h2 {
+    font-size: 8pt; font-weight: 700; letter-spacing: .14em; color: var(--burgundy);
+    margin: 4.5mm 0 2.2mm; padding-bottom: 1.8mm; border-bottom: 1px solid var(--line);
+  }
+  main p { margin: 0; }
+  .job-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .job-head b { font-weight: 600; }
+  .job-head span, .job-sub { color: var(--muted); font-size: 8.4pt; }
+  .job-sub { margin-bottom: 2mm; }
+  ul { margin: 0; padding-left: 4.5mm; }
+  li { margin-bottom: 1.2mm; }
+  li::marker { color: var(--burgundy); }
+  li b { font-weight: 600; }
+  em { font-style: normal; color: var(--burgundy); font-weight: 600; }
+  .proj { margin-bottom: 3mm; }
+  .proj b { font-weight: 600; display: block; }
+  .proj small { color: var(--muted); font-size: 8pt; }
+</style>
+</head>
+<body>
+  <aside>
+    <div class="photo"><img src="photo.jpg" alt=""></div>
+
+    <section>
+      <h3>CONTACT</h3>
+      <div class="label">Location</div>
+      <div>Kyiv, Ukraine</div>
+      <div class="label">Email</div>
+      <div><a href="mailto:aiia.d.ukrainska@gmail.com">aiia.d.ukrainska@gmail.com</a></div>
+      <div class="label">LinkedIn</div>
+      <div><a href="https://www.linkedin.com/in/anastasiia-ukrainska-072061302/">View my profile</a></div>
+      <div class="label">Portfolio</div>
+      <div><a href="https://app.notion.com/p/Anastasiia-Ukrainska-AI-Automator-3c61a7c286c881c7b3f0e59620343c67">View my portfolio</a></div>
+    </section>
+
+    <section>
+      <h3>SKILLS</h3>
+      {{SKILLS}}
+    </section>
+
+    <section>
+      <h3>LANGUAGES</h3>
+      <div class="item"><b>Ukrainian, Russian</b><span>Native</span></div>
+      <div class="item"><b>English</b><span>B2, certified</span></div>
+    </section>
+
+    <section>
+      <h3>EDUCATION</h3>
+      <div class="item"><b>Borys Grinchenko Kyiv University</b><span>Professional college, Management (production organization)</span><small>2021–2025</small></div>
+      <div class="item"><b>GoIT: AI Automator</b><span>AI automation course with mentoring</span><small>2026 – present</small></div>
+    </section>
+  </aside>
+
+  <main>
+    <h1>Anastasiia<br>Ukrainska</h1>
+    <div class="headline">{{HEADLINE}}</div>
+
+    <h2>SUMMARY</h2>
+    <p>{{SUMMARY}}</p>
+
+    <h2>EXPERIENCE</h2>
+    <div class="job-head"><b>IT Support &amp; Automation, Savvy</b><span>Feb 2025 – present, part-time</span></div>
+    <div class="job-sub">B2B company: soft-skills trainings and business English</div>
+    <ul>
+      {{EXPERIENCE}}
+    </ul>
+
+    <h2>PROJECTS</h2>
+    {{PROJECTS}}
+
+    <h2>EARLIER EXPERIENCE</h2>
+    <ul>
+      {{EARLIER}}
+    </ul>
+  </main>
+</body>
+</html>

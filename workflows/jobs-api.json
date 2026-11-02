@@ -1,0 +1,825 @@
+{
+  "name": "jobs-api",
+  "description": "API для сервера: GET /jobs-queue віддає вакансії зі статусом draft_requested; POST /jobs-done приймає резюме PDF + лист → чернетка Gmail в aiia.d + PDF у Тапок. Ключ у заголовку x-jobs-key.",
+  "active": true,
+  "createdAt": "2026-11-01T10:23:38.780Z",
+  "updatedAt": "2026-11-01T10:23:38.780Z",
+  "isArchived": false,
+  "versionCounter": 1,
+  "sourceWorkflowId": null,
+  "nodes": [
+    {
+      "id": "6580c178-8a4f-4af3-acc1-d7373ac46296",
+      "name": "GET queue",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "jobs-queue",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {
+          "onlyRunIf": "={{ $json.headers['x-jobs-key'] === 'YOUR_JOBS_KEY' }}"
+        }
+      },
+      "webhookId": "0cdae315-8c1d-4fa2-84b1-99e57484d22f"
+    },
+    {
+      "id": "da5bb08d-3ed1-4ff9-8d85-8603c2e13435",
+      "name": "Get draft requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "draft_requested"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0603a339-2ad9-4590-a32a-d7e4cac46b78",
+      "name": "Pack queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const jobs = $input.all().map(i => i.json).filter(j => j.id).map(j => ({\n  id: j.id, kind: j.kind, source: j.source, title: j.title, company: j.company,\n  link: j.link, chat_link: j.chat_link, recruiter: j.recruiter, recruiter_email: j.recruiter_email,\n  received_at: j.received_at, fit: j.fit, text: j.text,\n}));\nreturn [{ json: { count: jobs.length, jobs } }];"
+      }
+    },
+    {
+      "id": "bc744855-3b90-4b39-9a15-a2a636e1d3dc",
+      "name": "POST done",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        520
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jobs-done",
+        "responseMode": "responseNode",
+        "options": {
+          "onlyRunIf": "={{ $json.headers['x-jobs-key'] === 'YOUR_JOBS_KEY' }}"
+        }
+      },
+      "webhookId": "bb9c2d65-c047-4bdd-9668-f708ffdb6e50"
+    },
+    {
+      "id": "c498ae00-e172-43cf-bd8b-032e732072c1",
+      "name": "Prepare draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// body: { id, title, company, to, chat_link, subject, letter, filename, pdf_base64 }\nconst b = $input.first().json.body || {};\nif (!b.id || !b.pdf_base64 || !b.letter || !b.subject) throw new Error('jobs-done: missing id/pdf_base64/letter/subject');\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fileName = b.filename || 'Anastasiia_Ukrainska_Resume.pdf';\nconst to = String(b.to || '').trim();\nconst lines = [\n  '✉️ <b>Чернетка готова:</b> ' + esc(b.title) + (b.company ? ' — ' + esc(b.company) : ''),\n  to ? '📮 Кому: ' + esc(to) : (b.chat_link ? '💬 Відповідай у чаті: <a href=\"' + esc(b.chat_link) + '\">відкрити</a> (лист нижче, резюме — цей PDF)' : '📮 Адресата нема — встав сама'),\n  '📂 <a href=\"https://mail.google.com/mail/u/?authuser=you@example.com#drafts\">Відкрити чернетки</a>',\n];\nreturn [{\n  json: { id: Number(b.id), to, hasTo: !!to, subject: b.subject, letter: b.letter, caption: lines.join('\\n'), fileName },\n  binary: { pdf: { data: b.pdf_base64, mimeType: 'application/pdf', fileName } },\n}];"
+      }
+    },
+    {
+      "id": "c1b9472c-d5e0-460b-ad01-ab5069502a42",
+      "name": "Create Gmail draft",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        460,
+        420
+      ],
+      "parameters": {
+        "resource": "draft",
+        "operation": "create",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.letter }}",
+        "options": {
+          "sendTo": "={{ $json.to }}",
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "pdf"
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      },
+      "webhookId": "1cfaf45b-daee-4fe6-aa54-0bcea0237b14"
+    },
+    {
+      "id": "69a2645e-64bf-4a75-99b2-d6b763363443",
+      "name": "Mark drafted",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        420
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Prepare draft').item.json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "drafted",
+            "draft_link": "=https://mail.google.com/mail/#drafts?compose={{ $json.message.id }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "draft_link",
+              "displayName": "draft_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a512051f-3877-4a77-890e-7c1cfa1dbf2d",
+      "name": "Reply ok",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        940,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, id: $('Prepare draft').item.json.id }) }}"
+      }
+    },
+    {
+      "id": "9c3ef962-6cf7-4a44-9d51-8a3b13908bcd",
+      "name": "Send PDF to Tapok",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        460,
+        640
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendDocument",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "binaryData": true,
+        "binaryPropertyName": "pdf",
+        "additionalFields": {
+          "caption": "={{ $json.caption }}",
+          "parse_mode": "HTML",
+          "fileName": "={{ $json.fileName }}"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "TapokForEveryday_bot"
+        }
+      },
+      "webhookId": "12869469-d88c-4b24-b923-25cd2421d647"
+    },
+    {
+      "id": "300f6e15-8f16-4c65-8e9e-c161b698ce96",
+      "name": "No email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        640
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Prepare draft').item.json.hasTo }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2ba4a308-b3c4-43e4-98d0-36e91a0ddd8e",
+      "name": "Send letter text",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        640
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $('Prepare draft').item.json.letter.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "TapokForEveryday_bot"
+        }
+      },
+      "webhookId": "ac9a957c-14e9-4b8b-bcba-84afa97e74a5"
+    }
+  ],
+  "connections": {
+    "GET queue": {
+      "main": [
+        [
+          {
+            "node": "Get draft requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get draft requests": {
+      "main": [
+        [
+          {
+            "node": "Pack queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST done": {
+      "main": [
+        [
+          {
+            "node": "Prepare draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare draft": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail draft",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send PDF to Tapok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gmail draft": {
+      "main": [
+        [
+          {
+            "node": "Mark drafted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark drafted": {
+      "main": [
+        [
+          {
+            "node": "Reply ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send PDF to Tapok": {
+      "main": [
+        [
+          {
+            "node": "No email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No email?": {
+      "main": [
+        [
+          {
+            "node": "Send letter text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "activeVersion": {
+    "versionId": "70b52847-68ff-40fc-8f45-ae8f8385b940",
+    "workflowId": "9wxdSzuKxHO4vfYF",
+    "nodes": [
+      {
+        "id": "6580c178-8a4f-4af3-acc1-d7373ac46296",
+        "name": "GET queue",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.2,
+        "position": [
+          0,
+          200
+        ],
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "jobs-queue",
+          "responseMode": "lastNode",
+          "responseData": "firstEntryJson",
+          "options": {
+            "onlyRunIf": "={{ $json.headers['x-jobs-key'] === 'YOUR_JOBS_KEY' }}"
+          }
+        },
+        "webhookId": "0cdae315-8c1d-4fa2-84b1-99e57484d22f"
+      },
+      {
+        "id": "da5bb08d-3ed1-4ff9-8d85-8603c2e13435",
+        "name": "Get draft requests",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          220,
+          200
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "status",
+                "condition": "eq",
+                "keyValue": "draft_requested"
+              }
+            ]
+          },
+          "returnAll": true
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "0603a339-2ad9-4590-a32a-d7e4cac46b78",
+        "name": "Pack queue",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          200
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const jobs = $input.all().map(i => i.json).filter(j => j.id).map(j => ({\n  id: j.id, kind: j.kind, source: j.source, title: j.title, company: j.company,\n  link: j.link, chat_link: j.chat_link, recruiter: j.recruiter, recruiter_email: j.recruiter_email,\n  received_at: j.received_at, fit: j.fit, text: j.text,\n}));\nreturn [{ json: { count: jobs.length, jobs } }];"
+        }
+      },
+      {
+        "id": "bc744855-3b90-4b39-9a15-a2a636e1d3dc",
+        "name": "POST done",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.2,
+        "position": [
+          0,
+          520
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "jobs-done",
+          "responseMode": "responseNode",
+          "options": {
+            "onlyRunIf": "={{ $json.headers['x-jobs-key'] === 'YOUR_JOBS_KEY' }}"
+          }
+        },
+        "webhookId": "bb9c2d65-c047-4bdd-9668-f708ffdb6e50"
+      },
+      {
+        "id": "c498ae00-e172-43cf-bd8b-032e732072c1",
+        "name": "Prepare draft",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          520
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "// body: { id, title, company, to, chat_link, subject, letter, filename, pdf_base64 }\nconst b = $input.first().json.body || {};\nif (!b.id || !b.pdf_base64 || !b.letter || !b.subject) throw new Error('jobs-done: missing id/pdf_base64/letter/subject');\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fileName = b.filename || 'Anastasiia_Ukrainska_Resume.pdf';\nconst to = String(b.to || '').trim();\nconst lines = [\n  '✉️ <b>Чернетка готова:</b> ' + esc(b.title) + (b.company ? ' — ' + esc(b.company) : ''),\n  to ? '📮 Кому: ' + esc(to) : (b.chat_link ? '💬 Відповідай у чаті: <a href=\"' + esc(b.chat_link) + '\">відкрити</a> (лист нижче, резюме — цей PDF)' : '📮 Адресата нема — встав сама'),\n  '📂 <a href=\"https://mail.google.com/mail/u/?authuser=you@example.com#drafts\">Відкрити чернетки</a>',\n];\nreturn [{\n  json: { id: Number(b.id), to, hasTo: !!to, subject: b.subject, letter: b.letter, caption: lines.join('\\n'), fileName },\n  binary: { pdf: { data: b.pdf_base64, mimeType: 'application/pdf', fileName } },\n}];"
+        }
+      },
+      {
+        "id": "c1b9472c-d5e0-460b-ad01-ab5069502a42",
+        "name": "Create Gmail draft",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          460,
+          420
+        ],
+        "parameters": {
+          "resource": "draft",
+          "operation": "create",
+          "subject": "={{ $json.subject }}",
+          "emailType": "text",
+          "message": "={{ $json.letter }}",
+          "options": {
+            "sendTo": "={{ $json.to }}",
+            "attachmentsUi": {
+              "attachmentsBinary": [
+                {
+                  "property": "pdf"
+                }
+              ]
+            }
+          }
+        },
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "",
+            "name": "Gmail account"
+          }
+        },
+        "webhookId": "1cfaf45b-daee-4fe6-aa54-0bcea0237b14"
+      },
+      {
+        "id": "69a2645e-64bf-4a75-99b2-d6b763363443",
+        "name": "Mark drafted",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          700,
+          420
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $('Prepare draft').item.json.id }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "status": "drafted",
+              "draft_link": "=https://mail.google.com/mail/#drafts?compose={{ $json.message.id }}"
+            },
+            "schema": [
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "draft_link",
+                "displayName": "draft_link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a512051f-3877-4a77-890e-7c1cfa1dbf2d",
+        "name": "Reply ok",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          940,
+          420
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ ok: true, id: $('Prepare draft').item.json.id }) }}"
+        }
+      },
+      {
+        "id": "9c3ef962-6cf7-4a44-9d51-8a3b13908bcd",
+        "name": "Send PDF to Tapok",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          460,
+          640
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "sendDocument",
+          "chatId": "YOUR_TELEGRAM_CHAT_ID",
+          "binaryData": true,
+          "binaryPropertyName": "pdf",
+          "additionalFields": {
+            "caption": "={{ $json.caption }}",
+            "parse_mode": "HTML",
+            "fileName": "={{ $json.fileName }}"
+          }
+        },
+        "credentials": {
+          "telegramApi": {
+            "id": "",
+            "name": "TapokForEveryday_bot"
+          }
+        },
+        "webhookId": "12869469-d88c-4b24-b923-25cd2421d647"
+      },
+      {
+        "id": "300f6e15-8f16-4c65-8e9e-c161b698ce96",
+        "name": "No email?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          700,
+          640
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "leftValue": "={{ $('Prepare draft').item.json.hasTo }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "false",
+                  "singleValue": true
+                },
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "2ba4a308-b3c4-43e4-98d0-36e91a0ddd8e",
+        "name": "Send letter text",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          940,
+          640
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "sendMessage",
+          "chatId": "YOUR_TELEGRAM_CHAT_ID",
+          "text": "={{ $('Prepare draft').item.json.letter.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": true
+          }
+        },
+        "credentials": {
+          "telegramApi": {
+            "id": "",
+            "name": "TapokForEveryday_bot"
+          }
+        },
+        "webhookId": "ac9a957c-14e9-4b8b-bcba-84afa97e74a5"
+      }
+    ],
+    "connections": {
+      "GET queue": {
+        "main": [
+          [
+            {
+              "node": "Get draft requests",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get draft requests": {
+        "main": [
+          [
+            {
+              "node": "Pack queue",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "POST done": {
+        "main": [
+          [
+            {
+              "node": "Prepare draft",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare draft": {
+        "main": [
+          [
+            {
+              "node": "Create Gmail draft",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Send PDF to Tapok",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Gmail draft": {
+        "main": [
+          [
+            {
+              "node": "Mark drafted",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mark drafted": {
+        "main": [
+          [
+            {
+              "node": "Reply ok",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send PDF to Tapok": {
+        "main": [
+          [
+            {
+              "node": "No email?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No email?": {
+        "main": [
+          [
+            {
+              "node": "Send letter text",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Anastasiia Ukrainska (via MCP)",
+    "name": "Initial: queue + done webhooks",
+    "description": "Created with 11 nodes: GET queue, Get draft requests, Pack queue, POST done, Prepare draft and 6 more",
+    "autosaved": false,
+    "createdAt": "2026-11-01T10:23:38.788Z",
+    "updatedAt": "2026-11-01T10:23:38.788Z",
+    "workflowPublishHistory": [
+      {
+        "id": 122,
+        "workflowId": "9wxdSzuKxHO4vfYF",
+        "versionId": "70b52847-68ff-40fc-8f45-ae8f8385b940",
+        "event": "activated",
+        "userId": "8f722349-c974-4f2d-a88e-f0aee42ec334",
+        "createdAt": "2026-11-01T10:23:49.048Z"
+      }
+    ]
+  },
+  "parentFolder": null
+}

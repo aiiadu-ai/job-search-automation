@@ -1,0 +1,1532 @@
+{
+  "name": "jobs-digest",
+  "description": "Пт 10:00: нові рядки з job_vacancies → Gemini оцінює 🟢/🟡/🔴 і пише картки → Тапок з кнопками ✉️/❌.",
+  "active": true,
+  "createdAt": "2026-10-31T18:42:04.842Z",
+  "updatedAt": "2026-10-31T22:30:04.369Z",
+  "isArchived": false,
+  "versionCounter": 5,
+  "sourceWorkflowId": null,
+  "nodes": [
+    {
+      "id": "9357893a-700b-410e-a64c-315b63b7bf98",
+      "name": "Friday 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                5
+              ],
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a47aa389-d1ce-43ec-8266-d4cbac95e24f",
+      "name": "Get new rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "new"
+            }
+          ]
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "28d943c4-ec7a-4cc1-8b65-fbdb220498c5",
+      "name": "Test run",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bb72b579-fbb1-4354-93cb-680b3edfcf60",
+      "name": "Screen vacancy",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "promptType": "define",
+        "hasOutputParser": true,
+        "text": "=Kind: {{ $json.kind }}\nSource: {{ $json.source }}\nTitle: {{ $json.title }}\nCompany: {{ $json.company }}\nDate: {{ $json.received_at }}\nText:\n{{ ($json.text || '').substring(0, 6000) }}",
+        "options": {
+          "systemMessage": "You screen job vacancies for Anastasiia (Aiia), Kyiv, Ukraine. Write all text fields in Ukrainian, short and plain.\n\nHER PROFILE\n- IT Support & AI Automation at Savvy (B2B training company), Feb 2025 - present, part-time.\n- Built: CRM automation (Apps Script + Notion API + webhooks + Telegram alerts), per-company reports with auto-calculation, Notion workspace redesign, Moodle LMS rollout, Miro workshop boards, access & password management.\n- Projects: AI call analytics (n8n + AssemblyAI + OpenRouter + Google Sheets), Telegram AI assistant on her own Linux server (Claude Code), auto-planner (n8n + Notion + Google Calendar), Excel work-schedule Telegram bot (Python), desktop English-learning app built with Claude Code.\n- Skills: n8n, Google Apps Script, Notion API, webhooks, Telegram bots, prompt engineering, Claude Code, OpenRouter, AssemblyAI; Notion, Moodle, Miro, Google Workspace. Python/JavaScript only via AI-assisted development.\n- English B2 (certified), Ukrainian and Russian native.\n- Wants: REMOTE only, junior or middle level, automation / no-code / AI-automation / integrations / IT support with automation.\n\nFIT RULES\n- red: senior/lead/head level, office or hybrid only, pure software development or QA, sales/marketing without automation, company based in Israel or a Muslim-majority country, US company unless the team is Ukrainian, or not a real vacancy (confirmation, counts only, news, ads).\n- green: remote + junior/middle + clearly automation / n8n / no-code / AI agents / Notion / Apps Script.\n- yellow: partly fits (e.g. Make/Zapier instead of n8n, some missing skill, unclear level or format).\n\nINPUT KINDS\n- direct: a recruiter wrote to her personally. Return exactly one vacancy describing their offer (fit by the same rules; a direct message is usually at least yellow unless clearly red).\n- vacancy: one vacancy. Return one item.\n- digest_email: a newsletter that may list several vacancies. Return one item per vacancy that has a title. If it only shows counts or links without vacancy details, return an empty list.\n\nFIELDS for each vacancy\n- fit: green | yellow | red\n- title, company\n- wants: what they require, max ~15 words\n- offers: what they offer (format, salary, schedule) — only what is stated, otherwise \"не вказано\"\n- why: one short reason for the fit\n- tip: one concrete tip for applying, referencing one of HER real projects that matches\n- link: vacancy URL if present in the text, else \"\"\n- recruiter_email: an email address to apply to if present, else \"\"\n\nNever invent facts that are not in the input.",
+          "batching": {
+            "batchSize": 1,
+            "delayBetweenBatches": 20000
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "b4a10273-6621-4ce5-910e-ae72f62654b7",
+      "name": "Gemini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        520
+      ],
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": "Google Gemini (PaLM) API"
+        }
+      }
+    },
+    {
+      "id": "4d434080-2e62-4988-bf1d-87094592a3f8",
+      "name": "Vacancy JSON",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        520
+      ],
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n  \"vacancies\": [\n    {\n      \"fit\": \"green\",\n      \"title\": \"AI Automation Specialist\",\n      \"company\": \"Supplax\",\n      \"wants\": \"n8n, інтеграції CRM, AI-агенти, англійська B1+\",\n      \"offers\": \"remote, українська команда\",\n      \"why\": \"n8n і AI-автоматизації — це твій профіль\",\n      \"tip\": \"Підсвіти кейс з аналітикою дзвінків (n8n + AssemblyAI)\",\n      \"link\": \"\",\n      \"recruiter_email\": \"\"\n    }\n  ]\n}"
+      }
+    },
+    {
+      "id": "945eb2a0-6e75-4af5-8204-c3d11a467d0f",
+      "name": "Build cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const rows = $('Pre-filter').all().filter(r => !r.json.junk);\nconst outs = $input.all();\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fmtDate = (d) => { const x = new Date(d); return isNaN(x) ? '' : String(x.getDate()).padStart(2, '0') + '.' + String(x.getMonth() + 1).padStart(2, '0'); };\nconst cleanTitle = (t) => String(t || '').replace(/\\s*\\((direct[^)]*|прям[^)]*|особист[^)]*)\\)/ig, '').trim();\nconst result = [];\nouts.forEach((o, i) => {\n  const row = rows[i] ? rows[i].json : {};\n  const vacs = ((o.json.output || {}).vacancies || []).filter(v => v && (v.fit === 'green' || v.fit === 'yellow'));\n  if (row.kind === 'digest_email' || vacs.length === 0) {\n    result.push({ json: { action: 'close', id: row.id } });\n  }\n  vacs.forEach((v, n) => {\n    const direct = row.kind === 'direct';\n    const link = direct ? (row.chat_link || row.link || '') : (v.link || row.link || '');\n    const key = direct ? row.key : (link ? link.split('?')[0] : row.key + '-' + n);\n    const emoji = v.fit === 'green' ? '🟢' : '🟡';\n    const title = cleanTitle(v.title || row.title);\n    const head = direct\n      ? '💌 Рекрутер написав тобі' + (row.recruiter ? ' (' + esc(row.recruiter) + ')' : '')\n      : '📋 Розсилка ' + esc(row.source);\n    const card = [\n      emoji + ' <b>' + esc(title) + (v.company || row.company ? ' — ' + esc(v.company || row.company) : '') + '</b>',\n      head,\n      '',\n      '<b>Дата листа:</b> ' + fmtDate(row.received_at),\n      '<b>Що хочуть:</b> ' + esc(v.wants),\n      '<b>Що пропонують:</b> ' + esc(v.offers),\n      '<b>Чому:</b> ' + esc(v.why),\n      '<b>Порада:</b> ' + esc(v.tip),\n      link ? '🔗 <a href=\"' + esc(link) + '\">відкрити</a>' : '',\n    ].filter((l, idx) => l !== '' || idx === 2).join('\\n');\n    result.push({ json: {\n      action: 'card', key,\n      source: row.source, kind: direct ? 'direct' : 'vacancy',\n      title, company: v.company || row.company || '',\n      link, chat_link: row.chat_link || '',\n      recruiter: row.recruiter || '', recruiter_email: v.recruiter_email || row.recruiter_email || '',\n      text: direct ? row.text : [v.wants, v.offers].join('\\n'),\n      received_at: row.received_at, fit: v.fit, card,\n    }});\n  });\n});\nreturn result;\n"
+      }
+    },
+    {
+      "id": "ad73591e-a9c1-47aa-ab38-e363ffa05412",
+      "name": "Card or close",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "card",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "card"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "close",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "close"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b4fcf64a-98ee-4379-bfe8-7eda052af861",
+      "name": "Save card",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1240,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $json.key }}",
+            "source": "={{ $json.source }}",
+            "kind": "={{ $json.kind }}",
+            "title": "={{ $json.title }}",
+            "company": "={{ $json.company }}",
+            "link": "={{ $json.link }}",
+            "chat_link": "={{ $json.chat_link }}",
+            "recruiter": "={{ $json.recruiter }}",
+            "recruiter_email": "={{ $json.recruiter_email }}",
+            "text": "={{ $json.text }}",
+            "received_at": "={{ $json.received_at }}",
+            "fit": "={{ $json.fit }}",
+            "card": "={{ $json.card }}",
+            "status": "sent"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chat_link",
+              "displayName": "chat_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recruiter",
+              "displayName": "recruiter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recruiter_email",
+              "displayName": "recruiter_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fit",
+              "displayName": "fit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "card",
+              "displayName": "card",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "427a06e0-ad02-4446-9454-232c38f66341",
+      "name": "Send card to Tapok",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1480,
+        200
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $('Build cards').item.json.card }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✉️ Зробити чернетку",
+                    "additionalFields": {
+                      "callback_data": "=draft:{{ $json.id }}"
+                    }
+                  },
+                  {
+                    "text": "❌ Пропустити",
+                    "additionalFields": {
+                      "callback_data": "=skip:{{ $json.id }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "TapokForEveryday_bot"
+        }
+      },
+      "webhookId": "21693bda-f528-45f6-8106-d947d02f241f"
+    },
+    {
+      "id": "e8672aeb-9df1-46bc-a04b-72784d3a4621",
+      "name": "Remember message id",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1720,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Save card').item.json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tg_message_id": "={{ $json.result.message_id }}"
+          },
+          "schema": [
+            {
+              "id": "tg_message_id",
+              "displayName": "tg_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "47888800-3226-4298-97cd-66f5d5ea0cc2",
+      "name": "Mark processed",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1240,
+        420
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_DATA_TABLE_ID",
+          "cachedResultName": "job_vacancies"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "processed"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f9c73677-b9c6-45cb-bc57-647a1d3d588c",
+      "name": "Pre-filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Сміття (коди, підтвердження, Work.ua-розсилки лише з кількістю) закриваємо без ШІ, щоб не палити ліміт Gemini\nconst JUNK = /підтверд|confirm|verify|код підтвердження|пароль|password/i;\nreturn $input.all().map(it => {\n  const j = it.json;\n  const t = (j.title || '') + ' ' + (j.text || '').slice(0, 400);\n  const countsOnly = j.source === 'Work.ua' && /За пошуковим запитом/.test(j.text || '');\n  return { json: { ...j, junk: j.kind !== 'direct' && (JUNK.test(t) || countsOnly) } };\n});",
+        "language": "javaScript",
+        "mode": "runOnceForAllItems"
+      }
+    },
+    {
+      "id": "14b14dfe-750f-48e2-a540-64ef96e66e39",
+      "name": "Junk?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.junk }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Friday 10:00": {
+      "main": [
+        [
+          {
+            "node": "Get new rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test run": {
+      "main": [
+        [
+          {
+            "node": "Get new rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screen vacancy": {
+      "main": [
+        [
+          {
+            "node": "Build cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Screen vacancy",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vacancy JSON": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Screen vacancy",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build cards": {
+      "main": [
+        [
+          {
+            "node": "Card or close",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Card or close": {
+      "main": [
+        [
+          {
+            "node": "Save card",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save card": {
+      "main": [
+        [
+          {
+            "node": "Send card to Tapok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send card to Tapok": {
+      "main": [
+        [
+          {
+            "node": "Remember message id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get new rows": {
+      "main": [
+        [
+          {
+            "node": "Pre-filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-filter": {
+      "main": [
+        [
+          {
+            "node": "Junk?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Junk?": {
+      "main": [
+        [
+          {
+            "node": "Mark processed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Screen vacancy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "c9945522-a62a-4533-885e-a04e2960cd18",
+      "name": "AI-відбір",
+      "nodeIds": [
+        "bb72b579-fbb1-4354-93cb-680b3edfcf60",
+        "b4a10273-6621-4ce5-910e-ae72f62654b7",
+        "4d434080-2e62-4988-bf1d-87094592a3f8",
+        "945eb2a0-6e75-4af5-8204-c3d11a467d0f"
+      ],
+      "description": "Gemini читає кожен лист/вакансію, ставить 🟢/🟡/🔴 і пише картку українською"
+    },
+    {
+      "id": "ac4d2ff0-f019-49bc-b880-71fb537bcb0b",
+      "name": "Тапок",
+      "nodeIds": [
+        "b4fcf64a-98ee-4379-bfe8-7eda052af861",
+        "427a06e0-ad02-4446-9454-232c38f66341",
+        "e8672aeb-9df1-46bc-a04b-72784d3a4621"
+      ],
+      "description": "Зберігає картку в таблицю й надсилає в Тапок з кнопками Зробити чернетку / Пропустити"
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/Kiev"
+  },
+  "activeVersion": {
+    "versionId": "3a7ae00b-e128-494d-bef0-2fd890c2f1a3",
+    "workflowId": "iYmBWNzi48ix1xAZ",
+    "nodes": [
+      {
+        "id": "9357893a-700b-410e-a64c-315b63b7bf98",
+        "name": "Friday 10:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.4,
+        "position": [
+          0,
+          200
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "weeks",
+                "weeksInterval": 1,
+                "triggerAtDay": [
+                  5
+                ],
+                "triggerAtHour": 10,
+                "triggerAtMinute": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "a47aa389-d1ce-43ec-8266-d4cbac95e24f",
+        "name": "Get new rows",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          240,
+          300
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "status",
+                "condition": "eq",
+                "keyValue": "new"
+              }
+            ]
+          },
+          "returnAll": true
+        }
+      },
+      {
+        "id": "28d943c4-ec7a-4cc1-8b65-fbdb220498c5",
+        "name": "Test run",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          400
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "bb72b579-fbb1-4354-93cb-680b3edfcf60",
+        "name": "Screen vacancy",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          640,
+          300
+        ],
+        "parameters": {
+          "promptType": "define",
+          "hasOutputParser": true,
+          "text": "=Kind: {{ $json.kind }}\nSource: {{ $json.source }}\nTitle: {{ $json.title }}\nCompany: {{ $json.company }}\nDate: {{ $json.received_at }}\nText:\n{{ ($json.text || '').substring(0, 6000) }}",
+          "options": {
+            "systemMessage": "You screen job vacancies for Anastasiia (Aiia), Kyiv, Ukraine. Write all text fields in Ukrainian, short and plain.\n\nHER PROFILE\n- IT Support & AI Automation at Savvy (B2B training company), Feb 2025 - present, part-time.\n- Built: CRM automation (Apps Script + Notion API + webhooks + Telegram alerts), per-company reports with auto-calculation, Notion workspace redesign, Moodle LMS rollout, Miro workshop boards, access & password management.\n- Projects: AI call analytics (n8n + AssemblyAI + OpenRouter + Google Sheets), Telegram AI assistant on her own Linux server (Claude Code), auto-planner (n8n + Notion + Google Calendar), Excel work-schedule Telegram bot (Python), desktop English-learning app built with Claude Code.\n- Skills: n8n, Google Apps Script, Notion API, webhooks, Telegram bots, prompt engineering, Claude Code, OpenRouter, AssemblyAI; Notion, Moodle, Miro, Google Workspace. Python/JavaScript only via AI-assisted development.\n- English B2 (certified), Ukrainian and Russian native.\n- Wants: REMOTE only, junior or middle level, automation / no-code / AI-automation / integrations / IT support with automation.\n\nFIT RULES\n- red: senior/lead/head level, office or hybrid only, pure software development or QA, sales/marketing without automation, company based in Israel or a Muslim-majority country, US company unless the team is Ukrainian, or not a real vacancy (confirmation, counts only, news, ads).\n- green: remote + junior/middle + clearly automation / n8n / no-code / AI agents / Notion / Apps Script.\n- yellow: partly fits (e.g. Make/Zapier instead of n8n, some missing skill, unclear level or format).\n\nINPUT KINDS\n- direct: a recruiter wrote to her personally. Return exactly one vacancy describing their offer (fit by the same rules; a direct message is usually at least yellow unless clearly red).\n- vacancy: one vacancy. Return one item.\n- digest_email: a newsletter that may list several vacancies. Return one item per vacancy that has a title. If it only shows counts or links without vacancy details, return an empty list.\n\nFIELDS for each vacancy\n- fit: green | yellow | red\n- title, company\n- wants: what they require, max ~15 words\n- offers: what they offer (format, salary, schedule) — only what is stated, otherwise \"не вказано\"\n- why: one short reason for the fit\n- tip: one concrete tip for applying, referencing one of HER real projects that matches\n- link: vacancy URL if present in the text, else \"\"\n- recruiter_email: an email address to apply to if present, else \"\"\n\nNever invent facts that are not in the input.",
+            "batching": {
+              "batchSize": 1,
+              "delayBetweenBatches": 20000
+            }
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000
+      },
+      {
+        "id": "b4a10273-6621-4ce5-910e-ae72f62654b7",
+        "name": "Gemini",
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1.2,
+        "position": [
+          400,
+          520
+        ],
+        "parameters": {
+          "modelName": "models/gemini-3-flash-preview",
+          "options": {
+            "temperature": 0.2
+          }
+        },
+        "credentials": {
+          "googlePalmApi": {
+            "id": "",
+            "name": "Google Gemini (PaLM) API"
+          }
+        }
+      },
+      {
+        "id": "4d434080-2e62-4988-bf1d-87094592a3f8",
+        "name": "Vacancy JSON",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          560,
+          520
+        ],
+        "parameters": {
+          "schemaType": "fromJson",
+          "jsonSchemaExample": "{\n  \"vacancies\": [\n    {\n      \"fit\": \"green\",\n      \"title\": \"AI Automation Specialist\",\n      \"company\": \"Supplax\",\n      \"wants\": \"n8n, інтеграції CRM, AI-агенти, англійська B1+\",\n      \"offers\": \"remote, українська команда\",\n      \"why\": \"n8n і AI-автоматизації — це твій профіль\",\n      \"tip\": \"Підсвіти кейс з аналітикою дзвінків (n8n + AssemblyAI)\",\n      \"link\": \"\",\n      \"recruiter_email\": \"\"\n    }\n  ]\n}"
+        }
+      },
+      {
+        "id": "945eb2a0-6e75-4af5-8204-c3d11a467d0f",
+        "name": "Build cards",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          300
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const rows = $('Pre-filter').all().filter(r => !r.json.junk);\nconst outs = $input.all();\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fmtDate = (d) => { const x = new Date(d); return isNaN(x) ? '' : String(x.getDate()).padStart(2, '0') + '.' + String(x.getMonth() + 1).padStart(2, '0'); };\nconst cleanTitle = (t) => String(t || '').replace(/\\s*\\((direct[^)]*|прям[^)]*|особист[^)]*)\\)/ig, '').trim();\nconst result = [];\nouts.forEach((o, i) => {\n  const row = rows[i] ? rows[i].json : {};\n  const vacs = ((o.json.output || {}).vacancies || []).filter(v => v && (v.fit === 'green' || v.fit === 'yellow'));\n  if (row.kind === 'digest_email' || vacs.length === 0) {\n    result.push({ json: { action: 'close', id: row.id } });\n  }\n  vacs.forEach((v, n) => {\n    const direct = row.kind === 'direct';\n    const link = direct ? (row.chat_link || row.link || '') : (v.link || row.link || '');\n    const key = direct ? row.key : (link ? link.split('?')[0] : row.key + '-' + n);\n    const emoji = v.fit === 'green' ? '🟢' : '🟡';\n    const title = cleanTitle(v.title || row.title);\n    const head = direct\n      ? '💌 Рекрутер написав тобі' + (row.recruiter ? ' (' + esc(row.recruiter) + ')' : '')\n      : '📋 Розсилка ' + esc(row.source);\n    const card = [\n      emoji + ' <b>' + esc(title) + (v.company || row.company ? ' — ' + esc(v.company || row.company) : '') + '</b>',\n      head,\n      '',\n      '<b>Дата листа:</b> ' + fmtDate(row.received_at),\n      '<b>Що хочуть:</b> ' + esc(v.wants),\n      '<b>Що пропонують:</b> ' + esc(v.offers),\n      '<b>Чому:</b> ' + esc(v.why),\n      '<b>Порада:</b> ' + esc(v.tip),\n      link ? '🔗 <a href=\"' + esc(link) + '\">відкрити</a>' : '',\n    ].filter((l, idx) => l !== '' || idx === 2).join('\\n');\n    result.push({ json: {\n      action: 'card', key,\n      source: row.source, kind: direct ? 'direct' : 'vacancy',\n      title, company: v.company || row.company || '',\n      link, chat_link: row.chat_link || '',\n      recruiter: row.recruiter || '', recruiter_email: v.recruiter_email || row.recruiter_email || '',\n      text: direct ? row.text : [v.wants, v.offers].join('\\n'),\n      received_at: row.received_at, fit: v.fit, card,\n    }});\n  });\n});\nreturn result;\n"
+        }
+      },
+      {
+        "id": "ad73591e-a9c1-47aa-ab38-e363ffa05412",
+        "name": "Card or close",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          1000,
+          300
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "outputKey": "card",
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict"
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "card"
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "outputKey": "close",
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict"
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "close"
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "b4fcf64a-98ee-4379-bfe8-7eda052af861",
+        "name": "Save card",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1240,
+          200
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "upsert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "key",
+                "condition": "eq",
+                "keyValue": "={{ $json.key }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "key": "={{ $json.key }}",
+              "source": "={{ $json.source }}",
+              "kind": "={{ $json.kind }}",
+              "title": "={{ $json.title }}",
+              "company": "={{ $json.company }}",
+              "link": "={{ $json.link }}",
+              "chat_link": "={{ $json.chat_link }}",
+              "recruiter": "={{ $json.recruiter }}",
+              "recruiter_email": "={{ $json.recruiter_email }}",
+              "text": "={{ $json.text }}",
+              "received_at": "={{ $json.received_at }}",
+              "fit": "={{ $json.fit }}",
+              "card": "={{ $json.card }}",
+              "status": "sent"
+            },
+            "schema": [
+              {
+                "id": "key",
+                "displayName": "key",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "source",
+                "displayName": "source",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "kind",
+                "displayName": "kind",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "title",
+                "displayName": "title",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "company",
+                "displayName": "company",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "link",
+                "displayName": "link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "chat_link",
+                "displayName": "chat_link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "recruiter",
+                "displayName": "recruiter",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "recruiter_email",
+                "displayName": "recruiter_email",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "text",
+                "displayName": "text",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "received_at",
+                "displayName": "received_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "dateTime",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "fit",
+                "displayName": "fit",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "card",
+                "displayName": "card",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "427a06e0-ad02-4446-9454-232c38f66341",
+        "name": "Send card to Tapok",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1480,
+          200
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "sendMessage",
+          "chatId": "YOUR_TELEGRAM_CHAT_ID",
+          "text": "={{ $('Build cards').item.json.card }}",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "✉️ Зробити чернетку",
+                      "additionalFields": {
+                        "callback_data": "=draft:{{ $json.id }}"
+                      }
+                    },
+                    {
+                      "text": "❌ Пропустити",
+                      "additionalFields": {
+                        "callback_data": "=skip:{{ $json.id }}"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": true
+          }
+        },
+        "credentials": {
+          "telegramApi": {
+            "id": "",
+            "name": "TapokForEveryday_bot"
+          }
+        },
+        "webhookId": "21693bda-f528-45f6-8106-d947d02f241f"
+      },
+      {
+        "id": "e8672aeb-9df1-46bc-a04b-72784d3a4621",
+        "name": "Remember message id",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1720,
+          200
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $('Save card').item.json.id }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "tg_message_id": "={{ $json.result.message_id }}"
+            },
+            "schema": [
+              {
+                "id": "tg_message_id",
+                "displayName": "tg_message_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "47888800-3226-4298-97cd-66f5d5ea0cc2",
+        "name": "Mark processed",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1240,
+          420
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "YOUR_DATA_TABLE_ID",
+            "cachedResultName": "job_vacancies"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $json.id }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "status": "processed"
+            },
+            "schema": [
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "f9c73677-b9c6-45cb-bc57-647a1d3d588c",
+        "name": "Pre-filter",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          360,
+          300
+        ],
+        "parameters": {
+          "jsCode": "// Сміття (коди, підтвердження, Work.ua-розсилки лише з кількістю) закриваємо без ШІ, щоб не палити ліміт Gemini\nconst JUNK = /підтверд|confirm|verify|код підтвердження|пароль|password/i;\nreturn $input.all().map(it => {\n  const j = it.json;\n  const t = (j.title || '') + ' ' + (j.text || '').slice(0, 400);\n  const countsOnly = j.source === 'Work.ua' && /За пошуковим запитом/.test(j.text || '');\n  return { json: { ...j, junk: j.kind !== 'direct' && (JUNK.test(t) || countsOnly) } };\n});",
+          "language": "javaScript",
+          "mode": "runOnceForAllItems"
+        }
+      },
+      {
+        "id": "14b14dfe-750f-48e2-a540-64ef96e66e39",
+        "name": "Junk?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          480,
+          300
+        ],
+        "parameters": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "leftValue": "={{ $json.junk }}",
+                "operator": {
+                  "operation": "true",
+                  "singleValue": true,
+                  "type": "boolean"
+                },
+                "rightValue": ""
+              }
+            ],
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            }
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Friday 10:00": {
+        "main": [
+          [
+            {
+              "node": "Get new rows",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Test run": {
+        "main": [
+          [
+            {
+              "node": "Get new rows",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Screen vacancy": {
+        "main": [
+          [
+            {
+              "node": "Build cards",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gemini": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Screen vacancy",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Vacancy JSON": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Screen vacancy",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build cards": {
+        "main": [
+          [
+            {
+              "node": "Card or close",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Card or close": {
+        "main": [
+          [
+            {
+              "node": "Save card",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Mark processed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save card": {
+        "main": [
+          [
+            {
+              "node": "Send card to Tapok",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send card to Tapok": {
+        "main": [
+          [
+            {
+              "node": "Remember message id",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get new rows": {
+        "main": [
+          [
+            {
+              "node": "Pre-filter",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pre-filter": {
+        "main": [
+          [
+            {
+              "node": "Junk?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Junk?": {
+        "main": [
+          [
+            {
+              "node": "Mark processed",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Screen vacancy",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [
+      {
+        "id": "c9945522-a62a-4533-885e-a04e2960cd18",
+        "name": "AI-відбір",
+        "nodeIds": [
+          "bb72b579-fbb1-4354-93cb-680b3edfcf60",
+          "b4a10273-6621-4ce5-910e-ae72f62654b7",
+          "4d434080-2e62-4988-bf1d-87094592a3f8",
+          "945eb2a0-6e75-4af5-8204-c3d11a467d0f"
+        ],
+        "description": "Gemini читає кожен лист/вакансію, ставить 🟢/🟡/🔴 і пише картку українською"
+      },
+      {
+        "id": "ac4d2ff0-f019-49bc-b880-71fb537bcb0b",
+        "name": "Тапок",
+        "nodeIds": [
+          "b4fcf64a-98ee-4379-bfe8-7eda052af861",
+          "427a06e0-ad02-4446-9454-232c38f66341",
+          "e8672aeb-9df1-46bc-a04b-72784d3a4621"
+        ],
+        "description": "Зберігає картку в таблицю й надсилає в Тапок з кнопками Зробити чернетку / Пропустити"
+      }
+    ],
+    "authors": "Anastasiia Ukrainska (via MCP)",
+    "name": "Clean title: strip (Direct message)",
+    "description": "Updated nodes: Build cards",
+    "autosaved": false,
+    "createdAt": "2026-10-31T22:30:04.371Z",
+    "updatedAt": "2026-10-31T22:30:04.371Z",
+    "workflowPublishHistory": [
+      {
+        "id": 121,
+        "workflowId": "iYmBWNzi48ix1xAZ",
+        "versionId": "3a7ae00b-e128-494d-bef0-2fd890c2f1a3",
+        "event": "activated",
+        "userId": "8f722349-c974-4f2d-a88e-f0aee42ec334",
+        "createdAt": "2026-10-31T22:30:10.223Z"
+      }
+    ]
+  },
+  "parentFolder": null
+}
