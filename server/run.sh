@@ -73,7 +73,7 @@ MAIL="aiia.d.ukrainska@gmail.com"
 # Djinni-чат (є chat_link): коротке повідомлення в чат; інакше ~120 слів
 set_letter_range() {
   if [[ -n "$(jq -r '.chat_link // ""' <<<"$1")" ]]; then WMIN=30; WMAX=100; IS_CHAT=1
-  else WMIN=50; WMAX=130; IS_CHAT=0; fi
+  else WMIN=75; WMAX=110; IS_CHAT=0; fi
 }
 
 html2text() {  # прибирає теги й базові HTML-сутності
@@ -115,7 +115,7 @@ build_letter_prompt() {  # $1 = JSON вакансії
   local job="$1" kind about_rule
   kind="$(jq -r '.kind // "vacancy"' <<<"$job")"
   set_letter_range "$job"
-  if [[ $IS_CHAT -eq 1 ]]; then TARGET="50-80"; else TARGET="90-120"; fi
+  if [[ $IS_CHAT -eq 1 ]]; then TARGET="50-80"; else TARGET="близько 90 (85-95)"; fi
   if about_ok "$job"; then
     about_rule='Не вигадуй захоплення місією чи продуктом, якщо цього нема в даних.'
   else
