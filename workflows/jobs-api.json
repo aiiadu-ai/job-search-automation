@@ -72,7 +72,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const jobs = $input.all().map(i => i.json).filter(j => j.id).map(j => ({\n  id: j.id, kind: j.kind, source: j.source, title: j.title, company: j.company,\n  link: j.link, chat_link: j.chat_link, recruiter: j.recruiter, recruiter_email: j.recruiter_email,\n  received_at: j.received_at, fit: j.fit, text: j.text,\n}));\nreturn [{ json: { count: jobs.length, jobs } }];"
+        "jsCode": "const jobs = $input.all().map(i => i.json).filter(j => j.id).map(j => ({\n  id: j.id, kind: j.kind, source: j.source, title: j.title, company: j.company,\n  link: j.link, chat_link: j.chat_link, recruiter: j.recruiter, recruiter_email: j.recruiter_email,\n  received_at: j.received_at, fit: j.fit, text: j.text, card: j.card, about: j.about,\n}));\nreturn [{ json: { count: jobs.length, jobs } }];"
       }
     },
     {
@@ -106,7 +106,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// body: { id, title, company, to, chat_link, subject, letter, filename, pdf_base64 }\nconst b = $input.first().json.body || {};\nif (!b.id || !b.pdf_base64 || !b.letter || !b.subject) throw new Error('jobs-done: missing id/pdf_base64/letter/subject');\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fileName = b.filename || 'Anastasiia_Ukrainska_Resume.pdf';\nconst to = String(b.to || '').trim();\nconst lines = [\n  '✉️ <b>Чернетка готова:</b> ' + esc(b.title) + (b.company ? ' — ' + esc(b.company) : ''),\n  to ? '📮 Кому: ' + esc(to) : (b.chat_link ? '💬 Відповідай у чаті: <a href=\"' + esc(b.chat_link) + '\">відкрити</a> (лист нижче, резюме — цей PDF)' : '📮 Адресата нема — встав сама'),\n  '📂 <a href=\"https://mail.google.com/mail/u/?authuser=you@example.com#drafts\">Відкрити чернетки</a>',\n];\nreturn [{\n  json: { id: Number(b.id), to, hasTo: !!to, subject: b.subject, letter: b.letter, caption: lines.join('\\n'), fileName },\n  binary: { pdf: { data: b.pdf_base64, mimeType: 'application/pdf', fileName } },\n}];"
+        "jsCode": "// body: { id, title, company, to, chat_link, subject, letter, filename, pdf_base64 }\nconst b = $input.first().json.body || {};\nif (!b.id || !b.pdf_base64 || !b.letter || !b.subject) throw new Error('jobs-done: missing id/pdf_base64/letter/subject');\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fileName = b.filename || 'Anastasiia_Ukrainska_Resume.pdf';\nconst to = String(b.to || '').trim();\nconst lines = [\n  '✉️ <b>Чернетка готова:</b> ' + esc(b.title) + (b.company ? ' — ' + esc(b.company) : ''),\n  to ? '📮 Кому: ' + esc(to) : (b.chat_link ? '💬 Відповідай у чаті: <a href=\"' + esc(b.chat_link) + '\">відкрити</a> (лист нижче, резюме — цей PDF)' : '📮 Адресата нема — встав сама'),\n  '📂 <a href=\"https://mail.google.com/mail/u/?authuser=aiia.d.ukrainska@gmail.com#drafts\">Відкрити чернетки</a>',\n];\nreturn [{\n  json: { id: Number(b.id), to, hasTo: !!to, subject: b.subject, letter: b.letter, caption: lines.join('\\n'), fileName },\n  binary: { pdf: { data: b.pdf_base64, mimeType: 'application/pdf', fileName } },\n}];"
       }
     },
     {
@@ -474,7 +474,7 @@
         "parameters": {
           "mode": "runOnceForAllItems",
           "language": "javaScript",
-          "jsCode": "const jobs = $input.all().map(i => i.json).filter(j => j.id).map(j => ({\n  id: j.id, kind: j.kind, source: j.source, title: j.title, company: j.company,\n  link: j.link, chat_link: j.chat_link, recruiter: j.recruiter, recruiter_email: j.recruiter_email,\n  received_at: j.received_at, fit: j.fit, text: j.text,\n}));\nreturn [{ json: { count: jobs.length, jobs } }];"
+          "jsCode": "const jobs = $input.all().map(i => i.json).filter(j => j.id).map(j => ({\n  id: j.id, kind: j.kind, source: j.source, title: j.title, company: j.company,\n  link: j.link, chat_link: j.chat_link, recruiter: j.recruiter, recruiter_email: j.recruiter_email,\n  received_at: j.received_at, fit: j.fit, text: j.text, card: j.card, about: j.about,\n}));\nreturn [{ json: { count: jobs.length, jobs } }];"
         }
       },
       {
@@ -508,7 +508,7 @@
         "parameters": {
           "mode": "runOnceForAllItems",
           "language": "javaScript",
-          "jsCode": "// body: { id, title, company, to, chat_link, subject, letter, filename, pdf_base64 }\nconst b = $input.first().json.body || {};\nif (!b.id || !b.pdf_base64 || !b.letter || !b.subject) throw new Error('jobs-done: missing id/pdf_base64/letter/subject');\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fileName = b.filename || 'Anastasiia_Ukrainska_Resume.pdf';\nconst to = String(b.to || '').trim();\nconst lines = [\n  '✉️ <b>Чернетка готова:</b> ' + esc(b.title) + (b.company ? ' — ' + esc(b.company) : ''),\n  to ? '📮 Кому: ' + esc(to) : (b.chat_link ? '💬 Відповідай у чаті: <a href=\"' + esc(b.chat_link) + '\">відкрити</a> (лист нижче, резюме — цей PDF)' : '📮 Адресата нема — встав сама'),\n  '📂 <a href=\"https://mail.google.com/mail/u/?authuser=you@example.com#drafts\">Відкрити чернетки</a>',\n];\nreturn [{\n  json: { id: Number(b.id), to, hasTo: !!to, subject: b.subject, letter: b.letter, caption: lines.join('\\n'), fileName },\n  binary: { pdf: { data: b.pdf_base64, mimeType: 'application/pdf', fileName } },\n}];"
+          "jsCode": "// body: { id, title, company, to, chat_link, subject, letter, filename, pdf_base64 }\nconst b = $input.first().json.body || {};\nif (!b.id || !b.pdf_base64 || !b.letter || !b.subject) throw new Error('jobs-done: missing id/pdf_base64/letter/subject');\nconst esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fileName = b.filename || 'Anastasiia_Ukrainska_Resume.pdf';\nconst to = String(b.to || '').trim();\nconst lines = [\n  '✉️ <b>Чернетка готова:</b> ' + esc(b.title) + (b.company ? ' — ' + esc(b.company) : ''),\n  to ? '📮 Кому: ' + esc(to) : (b.chat_link ? '💬 Відповідай у чаті: <a href=\"' + esc(b.chat_link) + '\">відкрити</a> (лист нижче, резюме — цей PDF)' : '📮 Адресата нема — встав сама'),\n  '📂 <a href=\"https://mail.google.com/mail/u/?authuser=aiia.d.ukrainska@gmail.com#drafts\">Відкрити чернетки</a>',\n];\nreturn [{\n  json: { id: Number(b.id), to, hasTo: !!to, subject: b.subject, letter: b.letter, caption: lines.join('\\n'), fileName },\n  binary: { pdf: { data: b.pdf_base64, mimeType: 'application/pdf', fileName } },\n}];"
         }
       },
       {
