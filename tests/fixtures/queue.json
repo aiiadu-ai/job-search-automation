@@ -1,0 +1,14 @@
+{"count":2,"jobs":[
+ {"id":9001,"kind":"vacancy","source":"DOU","title":"Junior Automation Specialist (n8n)","company":"Acme Logistics",
+  "link":"https://example.org/jobs/1","chat_link":"","recruiter":"","recruiter_email":"hr@acme-logistics.test",
+  "received_at":"2026-11-10T09:00:00.000Z","fit":"green",
+  "about":"Acme Logistics: українська логістична компанія, автоматизує обробку замовлень для малого бізнесу.",
+  "card":"🟢 <b>Junior Automation Specialist (n8n) — Acme Logistics</b>\n📋 Розсилка DOU\n\n<b>Що хочуть:</b> n8n, webhooks, інтеграції з Google Sheets і Telegram\n<b>Що пропонують:</b> remote, повна зайнятість\n<b>Чому:</b> збігається з n8n-проєктами\n<b>Порада:</b> згадати AI call analytics\n🔗 <a href=\"https://example.org/jobs/1\">відкрити</a>",
+  "text":"n8n, webhooks, інтеграції з Google Sheets і Telegram\nremote, повна зайнятість"},
+ {"id":9002,"kind":"direct","source":"Email","title":"Вакансія IT Support (Direct message)","company":"",
+  "link":"","chat_link":"","recruiter":"Олена К.","recruiter_email":"olena@recruit-agency.test",
+  "received_at":"2026-11-11T12:00:00.000Z","fit":"yellow",
+  "about":"не знайдено",
+  "card":"🟡 <b>IT Support — компанія не вказана</b>\n💌 Рекрутер написав тобі (Олена К.)\n\n<b>Що хочуть:</b> IT-підтримка, Google Workspace, базова автоматизація\n<b>Що пропонують:</b> remote, не вказано\n<b>Чому:</b> частково збігається",
+  "text":"Вітаю! Шукаємо IT Support спеціаліста для клієнта з Європи. Задачі: Google Workspace, доступи, базова автоматизація, документація. Формат: remote. Чи цікаво вам? Олена, рекрутер."}
+]}
